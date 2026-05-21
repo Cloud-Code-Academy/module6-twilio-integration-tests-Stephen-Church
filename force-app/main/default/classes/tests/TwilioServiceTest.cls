@@ -1,112 +1,178 @@
-/**
- * TwilioServiceTest - Test class for TwilioService
- * @see TwilioService
- * 
- * TODO: Implement test methods to verify the functionality of the TwilioService class
- */
 @IsTest
 private class TwilioServiceTest {
+
+    public static final String PHONE_NUMBER = '+15551234567';
+    public static final String MESSAGE = 'Hello';
     
-    /**
-     * Test the sendSMS method with a valid request
-     * 
-     * TODO: Implement this test method to verify that sending an SMS works correctly
-     */
+    //***** TESTS *****/
+
     @IsTest
     static void testSendSMS() {
-        // TODO: Setup test data
-        // - Create test phone number and message body
         
-        // TODO: Setup mock callout response
-        // - Use TwilioCalloutMock to simulate a successful response
+        Test.setMock(HttpCalloutMock.class, new TwilioCalloutMock(201,'{"sid":"SM123","status":"queued"}'));
         
-        // TODO: Execute the test
-        // - Call TwilioService.sendSMS() method
+        Test.startTest();
+        TwilioResponse response = TwilioService.sendSMS(PHONE_NUMBER, MESSAGE);
+        Test.stopTest();
         
-        // TODO: Verify results
-        // - Verify that response is successful
-        // - Verify status code is correct
-        // - Verify response body contains expected values (sid, status, etc.)
+        Map<String, Object> responseBody = response.getBodyAsJson();
+        Assert.isTrue(response.success, 'The response was not a success');
+        Assert.areEqual(201, response.statusCode, 'The response status code was not 201');
+        Assert.areEqual('SM123', responseBody.get('sid'), 'The SID in the response is not as expected');
+        Assert.areEqual('queued', responseBody.get('status'), 'The Status in the response is not as expected');
     }
-    
-    /**
-     * Test the sendSMS method with an error response
-     * 
-     * TODO: Implement this test method to verify error handling in sendSMS
-     */
+
     @IsTest
-    static void testSendSMSError() {
-        // TODO: Setup test data
-        // - Create test phone number and message body
+    static void testSendSMSError_message() {
         
-        // TODO: Setup mock callout response
-        // - Use TwilioCalloutMock to simulate an error response
-        
-        // TODO: Execute the test
-        // - Call TwilioService.sendSMS() method
-        
-        // TODO: Verify results
-        // - Verify that response is not successful
-        // - Verify error status code is correct
-        // - Verify error message is extracted correctly
+        Test.setMock(HttpCalloutMock.class, new TwilioCalloutMock(400,'{"message":"Invalid number"}'));
+        testSendSMSError('message');
     }
-    
-    /**
-     * Test the getMessages method
-     * 
-     * TODO: Implement this test method to verify the getMessages functionality
-     */
+
     @IsTest
-    static void testGetMessages() {
-        // TODO: Setup mock callout response
-        // - Use TwilioCalloutMock to simulate a successful response with message list
+    static void testSendSMSError_error_message() {
         
-        // TODO: Execute the test
-        // - Call TwilioService.getMessages() method with an appropriate limit
-        
-        // TODO: Verify results
-        // - Verify that response is successful
-        // - Verify status code is correct
-        // - Verify response body contains expected messages data
+        Test.setMock(HttpCalloutMock.class, new TwilioCalloutMock(400,'{"error_message":"Invalid number"}'));
+        testSendSMSError('error_message');
     }
-    
-    /**
-     * Test the getMessages method with null/invalid limit
-     * 
-     * TODO: Implement this test method to verify handling of edge cases
-     */
+
     @IsTest
-    static void testGetMessagesWithInvalidLimit() {
-        // TODO: Setup mock callout response
-        // - Use TwilioCalloutMock to simulate a successful response
+    static void testSendSMSError_error() {
         
-        // TODO: Execute the test with null limit
-        // - Call TwilioService.getMessages() method with null
-        
-        // TODO: Execute the test with negative limit
-        // - Call TwilioService.getMessages() method with a negative number
-        
-        // TODO: Verify results
-        // - Verify that both responses are successful
-        // - Verify that the service handles these edge cases correctly
+        Test.setMock(HttpCalloutMock.class, new TwilioCalloutMock(400,'{"error":"Invalid number"}'));
+        testSendSMSError('error');
     }
-    
-    /**
-     * Test exception handling in makeHttpRequest
-     * 
-     * TODO: Implement this test method to verify exception handling
-     */
+
+    @IsTest
+    static void testGetMessages_validLimit() {
+
+        testGetMessages(20);
+    }
+
+    @IsTest
+    static void testGetMessages_nullLimit() {
+        
+        testGetMessages(null);
+    }
+
+    @IsTest
+    static void testGetMessages_negativeLimit() {
+        
+        testGetMessages(-20);
+    }
+
     @IsTest
     static void testMakeHttpRequestException() {
-        // TODO: Setup mock that throws exception
-        // - Use TwilioCalloutMock.createExceptionMock()
         
-        // TODO: Execute the test
-        // - Call a TwilioService method that will use the mock
-        
-        // TODO: Verify results
-        // - Verify that response indicates failure
-        // - Verify that status code is set to 500 (or appropriate error code)
-        // - Verify that error message is set correctly
+        Test.setMock(HttpCalloutMock.class, TwilioCalloutMock.createExceptionMock());
+
+        Test.startTest();
+        TwilioResponse response = TwilioService.sendSMS(PHONE_NUMBER, MESSAGE);
+        Test.stopTest();
+
+        Assert.isFalse(response.success, 'The response should be a failure');
+        Assert.areEqual(500, response.statusCode, 'The status code should be 500');
+        Assert.isTrue(response.getErrorMessage().contains('Twilio callout failed'), 'The error message is not as expected');
     }
+
+    @isTest
+    static void getBodyAsJson_null() {
+
+        TwilioResponse response = new TwilioResponse();
+
+        Test.startTest();
+        Map<String, Object> responseMap = response.getBodyAsJson();
+        Test.stopTest();
+
+        Assert.isNull(responseMap, 'The responseMap should be null');
+    }
+
+    @isTest
+    static void getBodyAsJson_invalidJson() {
+
+        TwilioResponse response = new TwilioResponse();
+        response.body = '{"message": "Invalid JSON",}';
+
+        Test.startTest();
+        Map<String, Object> responseMap = response.getBodyAsJson();
+        Test.stopTest();
+
+        Assert.isNull(responseMap, 'The responseMap should be null');
+    }
+
+    @isTest
+    static void getErrorMessages_success() {
+
+        TwilioResponse response = new TwilioResponse();
+        response.success = true;
+
+        Test.startTest();
+        String responseString = response.getErrorMessage();
+        Test.stopTest();
+
+        Assert.isNull(responseString, 'The response should be null');
+    }
+
+    //***** HELPERS *****/
+
+    static void testSendSMSError(String keyToExtract) {
+
+        Test.startTest();
+        TwilioResponse response = TwilioService.sendSMS(PHONE_NUMBER, MESSAGE);
+        Test.stopTest();
+
+        Map<String, Object> responseBody = response.getBodyAsJson();
+        Assert.isFalse(response.success, 'The response was a success');
+        Assert.areEqual(400, response.statusCode, 'The response status code was not 400');
+        Assert.areEqual('Invalid number', responseBody.get(keyToExtract), 'The message is not as expected');
+        Assert.areEqual('Invalid number', response.getErrorMessage(), 'The message extracted is not as expected');
+    }
+
+    static void testGetMessages(Integer pageSizeNumber) {
+
+        String pageSizeString = String.valueOf(pageSizeNumber);
+
+        String mockBody =
+        '{' +
+        '  "page": 0,' +
+        '  "page_size": ' + pageSizeString + ',' +
+        '  "messages": [' +
+        '    {' +
+        '      "sid": "sid0",' +
+        '      "body": "body0",' +
+        '      "status": "sent",' +
+        '      "from": "+18008008000",' +
+        '      "to": "+18888888880"' +
+        '    },' +
+        '    {' +
+        '      "sid": "sid1",' +
+        '      "body": "body1",' +
+        '      "status": "sent",' +
+        '      "from": "+18008008001",' +
+        '      "to": "+18888888881"' +
+        '    }' +
+        '  ]' +
+        '}';        
+
+        Test.setMock(HttpCalloutMock.class, new TwilioCalloutMock(200, mockBody));
+
+        Test.startTest();
+        TwilioResponse response = TwilioService.getMessages(pageSizeNumber);
+        Test.stopTest();
+
+        Map<String, Object> responseBody = response.getBodyAsJson();
+        List<Object> messages = (List<Object>)responseBody.get('messages');
+
+        Assert.isTrue(response.success, 'The response was a success');
+        Assert.areEqual(200, response.statusCode, 'The response status code was not 200');
+        for (Integer i = 0; i < messages.size(); i++) {
+            Map<String, Object> msg = (Map<String, Object>)messages.get(i);
+            Assert.areEqual('sid' + i, msg.get('sid'), 'The sid is not as expected');
+            Assert.areEqual('body' + i, msg.get('body'), 'The body is not as expected');
+            Assert.areEqual('sent', msg.get('status'), 'The status is not as expected');
+            Assert.areEqual('+1800800800' + i, msg.get('from'), 'The from is not as expected');
+            Assert.areEqual('+1888888888' + i, msg.get('to'), 'The to is not as expected');
+        }
+    }
+
 } 
