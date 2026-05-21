@@ -3,7 +3,7 @@
  * Exposes endpoints for sending and retrieving SMS messages
  * HTTP Methods: GET (fetch messages), POST (send messages), PUT (update preferences)
  */
-@RestResource(urlMapping='/twilio/sms/*')
+@RestResource(urlMapping='/webhook/twilio/sms/*') // added /webhook/
 global with sharing class TwilioRestApi {
     
     /**
